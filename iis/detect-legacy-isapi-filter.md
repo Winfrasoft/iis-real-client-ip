@@ -1,10 +1,19 @@
-# Detecting the legacy F5 X-Forwarded-For ISAPI filter
+# Detecting the legacy F5 X-Forwarded-For components
 
-The F5 DevCentral community filter, commonly referred to as `F5XFFHttpModule`, was published as a community tool rather than a supported F5 product. It was last updated in **2009**, targeting the IIS 6 and IIS 7 era, and does not work on IIS 10 (Windows Server 2016 and later).
+F5 published **two** IIS components on DevCentral, and they get conflated constantly:
 
-It still ranks well in search results and forum answers, so estates keep acquiring it, and older estates keep carrying it through Windows upgrades without anyone noticing it stopped working.
+| Component | Era | Installed as |
+| --- | --- | --- |
+| X-Forwarded-For **ISAPI filter** | The original, IIS 6 and IIS 7 | An ISAPI filter registration. Native code, no configuration. |
+| **HTTP module** (`F5XFFHttpModule`) | Later, for IIS 7, once Microsoft steered people away from ISAPI filters | A module entry. Reads an optional `F5XFFHttpModule.ini` beside the DLL. |
 
-None of this is a criticism of F5 or the engineer who wrote it. A free tool maintained until 2009 owes nobody IIS 10 compatibility in 2026. The problem is purely that search engines still present it as the current answer.
+`F5XFFHttpModule` names the HTTP module specifically. It is not another name for the ISAPI filter, though it is widely used as one.
+
+Both were community tools rather than supported F5 products. F5 put the source on GitHub at [f5devcentral/f5-xforwarded-for](https://github.com/f5devcentral/f5-xforwarded-for) in October 2015 and **archived that repository in May 2016**, before Windows Server 2016 (which ships IIS 10) was generally available. It has not changed since.
+
+Neither works on IIS 10. They still rank well in search results and forum answers, so estates keep acquiring them, and older estates keep carrying them through Windows upgrades without anyone noticing they stopped working.
+
+None of this is a criticism of F5 or the engineers who wrote them. Publishing the source and archiving it is the right way to retire a community tool: it is a clear public signal and it leaves the code forkable. The problem is purely that search engines still present the original articles as the current answer.
 
 ## Is it installed?
 
@@ -19,11 +28,11 @@ appcmd list modules
 
 In IIS Manager, the same information is under **ISAPI Filters** (at both server and site level) and **Modules**.
 
-You are looking for an entry pointing at a DLL dated 2009 or earlier. **Check the file version and timestamp rather than trying to recognise the name**, which varies depending on how each estate deployed it:
+**Check the DLL's file version and timestamp rather than trying to recognise the name**, which varies depending on how each estate deployed it. An `F5XFFHttpModule.ini` sitting beside the DLL identifies the HTTP module rather than the older ISAPI filter:
 
 ```powershell
 Get-ChildItem C:\Windows\System32\inetsrv -Filter *.dll |
-    Where-Object LastWriteTime -lt '2012-01-01' |
+    Where-Object LastWriteTime -lt '2017-01-01' |
     Select-Object Name, LastWriteTime,
                   @{N='FileVersion';E={$_.VersionInfo.FileVersion}} |
     Sort-Object LastWriteTime
