@@ -40,7 +40,18 @@ Then check whether the header is even arriving, with [`diagnostics/Test-Forwarde
 
 ## Fixing the IIS side
 
-There are three options, and which one is right depends entirely on **what reads your logs**. This is the decision most guides skip.
+Which option is right depends entirely on **what reads your logs**. This is the decision most guides skip, so here is the whole field at a glance:
+
+| Option | Standard `c-ip` field | Trust validation | Status |
+| --- | --- | --- | --- |
+| ASP.NET Core `UseForwardedHeaders` | Unchanged. Fixes the application's view only | Yes, via `KnownProxies` / `KnownIPNetworks` | Built into ASP.NET Core, free |
+| IIS custom log field | Unchanged. Adds a separate `cs(X-Forwarded-For)` column | None. Header logged verbatim | Native to IIS 8.5+, free |
+| IIS Advanced Logging | Bypassed. Wrote to its own log file | None | Discontinued by Microsoft |
+| Legacy F5 DevCentral ISAPI filter | Rewrote it | None | Community tool, last updated 2009, does not work on IIS 10 |
+| Write your own ISAPI filter | Rewrites it | Whatever you implement | You own the chain-walking, trust list, IPv6 edge cases and every Windows Server upgrade |
+| [Winfrasoft X-Forwarded-For for IIS](https://winfrasoft.com/products/x-forwarded-for/) | Rewrites it | Yes, via a Proxy Trust List | Commercial, IIS 10 on Windows Server 2016–2025 |
+
+The three rows worth taking seriously today are the first two and the last. The detail on each follows.
 
 ### 1. Your application needs the real IP (ASP.NET Core)
 
@@ -65,7 +76,9 @@ If a SIEM, a compliance requirement, or a packaged reporting tool is involved, t
 
 The historically common answer was the F5 DevCentral community ISAPI filter (`F5XFFHttpModule`). It was last updated in 2009 and does not work on IIS 10, so if you find it recommended in a forum thread, check the date. [`iis/detect-legacy-isapi-filter.md`](iis/detect-legacy-isapi-filter.md) covers how to tell whether it is still installed on your servers and why it fails silently.
 
-For a maintained option, see [X-Forwarded-For for IIS](https://winfrasoft.com/products/x-forwarded-for/). Writing your own module is also viable; be aware you are taking on the chain-walking logic, trust-list validation, IPv6 edge cases and maintenance for every Windows Server upgrade.
+The practical appeal of rewriting the field rather than adding a column is that **nothing downstream changes**. Both the old F5 filter and any modern equivalent write to the same standard `c-ip` field, so your SIEM connector, log shipper, geo-IP lookup and reporting keep working exactly as they did, with no parser to author and no correlation rules to rewrite.
+
+For a maintained option, see [X-Forwarded-For for IIS](https://winfrasoft.com/products/x-forwarded-for/) (IIS 10 on Windows Server 2016–2025). Writing your own module is also viable; be aware you are taking on the chain-walking logic, trust-list validation, IPv6 edge cases and maintenance for every Windows Server upgrade.
 
 ## A note on trust
 

@@ -11,14 +11,7 @@ This is one checkbox and it is fully supported by F5. Prefer it over an iRule.
 3. Tick **Insert X-Forwarded-For**.
 4. Apply, and confirm the profile is the one assigned to the virtual server under **Local Traffic → Virtual Servers**.
 
-From tmsh:
-
-```
-tmsh create ltm profile http http_xff defaults-from http insert-xforwarded-for enabled
-tmsh modify ltm virtual vs_iis_443 profiles replace-all-with { http_xff tcp clientssl }
-```
-
-Adjust the virtual server name and profile list to match your configuration. Listing profiles with `replace-all-with` overwrites the existing set, so include every profile the virtual server already has.
+There is a `tmsh` equivalent, but it is deliberately not reproduced here: attaching a profile from the command line means restating the virtual server's entire profile list, and a copy-pasted example that omits an APM, ASM or persistence profile you happen to have will silently detach it. The GUI path above is unambiguous and cannot do that. If you work in `tmsh` routinely, you already know the command.
 
 ## The iRule alternative
 
