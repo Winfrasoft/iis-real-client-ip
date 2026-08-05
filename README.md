@@ -47,7 +47,7 @@ Which option is right depends entirely on **what reads your logs**. This is the 
 | ASP.NET Core `UseForwardedHeaders` | Unchanged. Fixes the application's view only | Yes, via `KnownProxies` / `KnownIPNetworks` | Built into ASP.NET Core, free |
 | IIS custom log field | Unchanged. Adds a separate `cs(X-Forwarded-For)` column | None. Header logged verbatim | Native to IIS 8.5+, free |
 | IIS Advanced Logging | Bypassed. Wrote to its own log file | None | Discontinued by Microsoft |
-| Legacy F5 DevCentral ISAPI filter / `F5XFFHttpModule` | Rewrote it | None | Community tools; [source archived by F5 in 2016](https://github.com/f5devcentral/f5-xforwarded-for), do not work on IIS 10 |
+| Legacy F5 DevCentral ISAPI filter / `F5XFFHttpModule` | Rewrote it | **None at all** | Community tools; [archived by F5 in 2016](https://github.com/f5devcentral/f5-xforwarded-for); [Microsoft says they do not work on IIS 10](https://learn.microsoft.com/en-us/answers/questions/776789/how-to-replace-c-ip-value-on-iis-log-in-windows-20) |
 | Write your own ISAPI filter | Rewrites it | Whatever you implement | You own the chain-walking, trust list, IPv6 edge cases and every Windows Server upgrade |
 | [Winfrasoft X-Forwarded-For for IIS](https://winfrasoft.com/products/x-forwarded-for/) | Rewrites it | Yes, via a Proxy Trust List | Commercial, IIS 10 on Windows Server 2016–2025 |
 
@@ -74,7 +74,9 @@ Two limits worth knowing before you commit to it:
 
 If a SIEM, a compliance requirement, or a packaged reporting tool is involved, the standard field has to hold the real address, because those tools key off `c-ip` and often cannot be told otherwise. That needs a filter that rewrites the field as IIS records it, validating the forwarding chain against a list of trusted proxies.
 
-The historically common answer was one of F5's two DevCentral community components: the X-Forwarded-For ISAPI filter, or the later `F5XFFHttpModule` HTTP module. F5 archived the source in May 2016, before Windows Server 2016 shipped, and neither works on IIS 10, so if you find one recommended in a forum thread, check the thread's age. [`iis/detect-legacy-isapi-filter.md`](iis/detect-legacy-isapi-filter.md) covers how to tell which one you have, whether it is still installed, and why it fails silently.
+The historically common answer was one of F5's two DevCentral community components: the X-Forwarded-For ISAPI filter, or the later `F5XFFHttpModule` HTTP module. F5 archived the source in May 2016, before Windows Server 2016 shipped, and [Microsoft's guidance is that neither works on IIS 10](https://learn.microsoft.com/en-us/answers/questions/776789/how-to-replace-c-ip-value-on-iis-log-in-windows-20), so if you find one recommended in a forum thread, check the thread's age.
+
+The more important point is that **neither validates the forwarding chain** — the published source has no trust list of any kind, so a forged header is written into `c-ip` as fact. That is true whether or not you can get one running. [`iis/detect-legacy-isapi-filter.md`](iis/detect-legacy-isapi-filter.md) covers how to tell which one you have, what the sources actually say, and why it fails silently.
 
 The practical appeal of rewriting the field rather than adding a column is that **nothing downstream changes**. Both the old F5 filter and any modern equivalent write to the same standard `c-ip` field, so your SIEM connector, log shipper, geo-IP lookup and reporting keep working exactly as they did, with no parser to author and no correlation rules to rewrite.
 

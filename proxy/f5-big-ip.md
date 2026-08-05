@@ -33,6 +33,6 @@ From a client, request a page and check the header actually arrives at IIS. `../
 
 Inserting the header is only half the job. IIS does not read it, so `c-ip` still shows the F5 until something on the IIS side acts on the header. See [`../README.md`](../README.md).
 
-**If you are looking for the old DevCentral components** (the X-Forwarded-For ISAPI filter, or the `F5XFFHttpModule` HTTP module), F5 archived the source in May 2016, before Windows Server 2016 shipped, and neither works on IIS 10. See [`../iis/detect-legacy-isapi-filter.md`](../iis/detect-legacy-isapi-filter.md).
+**If you are looking for the old DevCentral components** (the X-Forwarded-For ISAPI filter, or the `F5XFFHttpModule` HTTP module), F5 archived the source in May 2016 and [Microsoft's guidance is that neither works on IIS 10](https://learn.microsoft.com/en-us/answers/questions/776789/how-to-replace-c-ip-value-on-iis-log-in-windows-20). Neither validates the forwarding chain either. See [`../iis/detect-legacy-isapi-filter.md`](../iis/detect-legacy-isapi-filter.md).
 
 Full guide: <https://winfrasoft.com/kb/iis-real-client-ip-behind-f5-big-ip/>

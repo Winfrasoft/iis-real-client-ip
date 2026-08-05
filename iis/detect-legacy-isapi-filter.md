@@ -11,7 +11,17 @@ F5 published **two** IIS components on DevCentral, and they get conflated consta
 
 Both were community tools rather than supported F5 products. F5 put the source on GitHub at [f5devcentral/f5-xforwarded-for](https://github.com/f5devcentral/f5-xforwarded-for) in October 2015 and **archived that repository in May 2016**, before Windows Server 2016 (which ships IIS 10) was generally available. It has not changed since.
 
-Neither works on IIS 10. They still rank well in search results and forum answers, so estates keep acquiring them, and older estates keep carrying them through Windows upgrades without anyone noticing they stopped working.
+Microsoft's guidance is that [neither works on IIS 10](https://learn.microsoft.com/en-us/answers/questions/776789/how-to-replace-c-ip-value-on-iis-log-in-windows-20). They still rank well in search results and forum answers, so estates keep acquiring them, and older estates keep carrying them through Windows upgrades without anyone noticing they stopped working.
+
+## What the record actually says
+
+Rather than assert it, here are the sources, including the one that cuts the other way:
+
+- **Microsoft**, on Microsoft Q&A in March 2022: ["neither the unofficial F5XFFHttpModule nor the Advanced Logging Module for IIS7 will work in IIS10"](https://learn.microsoft.com/en-us/answers/questions/776789/how-to-replace-c-ip-value-on-iis-log-in-windows-20).
+- **A field report**: an administrator running Exchange 2016 on Windows Server 2016 [reported in 2019](https://community.spiceworks.com/t/x-forwarded-for-iis-10-and-exchange-2016/723211) that the ISAPI filter caused IIS 10 to crash. One unreplicated report, so treat it as a caution rather than a certainty. The same post correctly notes that Advanced Logging was removed from IIS 10 and the ARR Helper was never released for it.
+- **A counter-report**: in that same Microsoft thread, the original asker says they resolved their problem by installing an F5 module. No detail on which component or build, so it is hard to weigh, but it exists.
+
+Whichever way that goes, the next point is not affected by it.
 
 None of this is a criticism of F5 or the engineers who wrote them. Publishing the source and archiving it is the right way to retire a community tool: it is a clear public signal and it leaves the code forkable. The problem is purely that search engines still present the original articles as the current answer.
 
@@ -50,7 +60,7 @@ Rarely with a clean error. Expect one of:
 
 Watch for the fix people reach for here: flipping **Enable 32-Bit Applications** to `True` so the filter loads. That changes the bitness of *every* application in that pool to accommodate an abandoned component. Not a good trade.
 
-**The worker process is unstable.** Less common, but a native filter written against a much older IIS runs in-process, and a crash takes the application pool with it.
+**The worker process crashes.** A native filter written against a much older IIS runs in-process, so a fault takes the application pool with it. This is the failure [reported on IIS 10 in 2019](https://community.spiceworks.com/t/x-forwarded-for-iis-10-and-exchange-2016/723211). One report, so not a certainty, but the most damaging of the three if it happens to you.
 
 ## Removing it
 
@@ -60,8 +70,12 @@ Watch for the fix people reach for here: flipping **Enable 32-Bit Applications**
 4. Confirm the BIG-IP is still inserting the header. That side is unchanged and supported; see [`../proxy/f5-big-ip.md`](../proxy/f5-big-ip.md).
 5. Deploy whichever replacement you have chosen from [`../README.md`](../README.md), and confirm `c-ip` shows real client addresses with [`../diagnostics/Get-IisClientIpBreakdown.ps1`](../diagnostics/Get-IisClientIpBreakdown.ps1).
 
-## One thing the old filter did not do
+## The problem that survives the compatibility question
 
-It did not validate the forwarding chain against a trust list. Whatever replacement you pick, make sure it does, and add your BIG-IP's SNAT addresses to it. Without that check, correcting `c-ip` means anything able to reach IIS can write a chosen address into your audit trail.
+**Neither component validates anything.** Both simply read the header and write it into the log. The [published source](https://github.com/f5devcentral/f5-xforwarded-for) contains no trust list, no allow-list, no notion of a known proxy and no chain validation of any kind, in either the ISAPI filter or the HTTP module.
+
+That matters more than whether it loads. `X-Forwarded-For` is client-supplied. If anything can reach IIS directly, bypassing the BIG-IP, it can set the header to any value and the filter writes it into `c-ip` as fact. A forged entry then sits in your audit trail indistinguishable from a real one.
+
+An audit trail that is confidently wrong is worse than one that is visibly wrong: a log full of load balancer addresses is obviously unhelpful and everyone works around it, whereas a log full of plausible client addresses is trusted. So whatever replacement you pick, make sure it validates the chain against proxies you have explicitly named, and add your BIG-IP's SNAT addresses to that list.
 
 Full guide: <https://winfrasoft.com/kb/f5-isapi-filter-iis-10-replacement/>
