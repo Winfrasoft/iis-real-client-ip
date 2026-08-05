@@ -1,0 +1,18 @@
+# Build output
+bin/
+obj/
+*.user
+
+# Local overrides holding real infrastructure addresses.
+# Do not commit your actual proxy IPs.
+appsettings.Local.json
+appsettings.Production.json
+
+# Editor
+.vs/
+.idea/
+*.swp
+
+# OS
+Thumbs.db
+.DS_Store

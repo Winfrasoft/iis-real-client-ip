@@ -1,0 +1,96 @@
+# Real client IP in IIS behind a proxy
+
+Working configuration samples for preserving the originating client IP address when Microsoft IIS sits behind a reverse proxy, load balancer or CDN.
+
+If every line in your IIS log shows the same handful of addresses, this repository is for you.
+
+## The problem in one paragraph
+
+A reverse proxy terminates the client's TCP connection and opens its own to IIS. IIS records the peer of the connection it accepted, so the `c-ip` field in the W3C log contains the proxy, not the visitor. Most proxies pass the original address along in the `X-Forwarded-For` request header, but **IIS never reads it**. Microsoft did not build X-Forwarded-For handling into IIS logging, so the header arrives, sits in the request, and is discarded.
+
+That means there are two separate halves to fix, and they fail independently:
+
+1. **The proxy has to send the header.** Some do automatically, some need a line of config. See [`proxy/`](proxy/).
+2. **Something on the IIS side has to read it.** This is the half people miss. See below.
+
+## Which half is broken?
+
+Run [`diagnostics/Get-IisClientIpBreakdown.ps1`](diagnostics/Get-IisClientIpBreakdown.ps1) on the web server. It reads your newest IIS log and counts the distinct `c-ip` values.
+
+| What you see | What it means |
+| --- | --- |
+| A long tail of distinct addresses | Nothing is wrong. You are not behind a proxy, or it is already handled. |
+| A few addresses covering every request | Normal symptom. Continue below. |
+| No `c-ip` column at all | The field is switched off in the site's logging configuration. |
+
+Then check whether the header is even arriving, with [`diagnostics/Test-ForwardedHeaders.ps1`](diagnostics/Test-ForwardedHeaders.ps1). If it is not, fix the proxy first, because nothing on the IIS side can help until the header is there.
+
+## Configuring the proxy
+
+| Proxy | Sends `X-Forwarded-For` by default? | Config |
+| --- | --- | --- |
+| Nginx | No | [`proxy/nginx.conf`](proxy/nginx.conf) |
+| HAProxy | No | [`proxy/haproxy.cfg`](proxy/haproxy.cfg) |
+| Apache (`mod_proxy`) | Yes | [`proxy/apache-httpd.conf`](proxy/apache-httpd.conf) |
+| IIS ARR | Yes, configurable | [`proxy/iis-arr.md`](proxy/iis-arr.md) |
+| F5 BIG-IP | No, one checkbox | [`proxy/f5-big-ip.md`](proxy/f5-big-ip.md) |
+| AWS ALB / Classic ELB | Yes | [`proxy/aws-elb.md`](proxy/aws-elb.md) |
+| Azure App Gateway / Front Door | Yes | [`proxy/azure.md`](proxy/azure.md) |
+| Cloudflare | Yes | [`proxy/cloudflare.md`](proxy/cloudflare.md) |
+
+## Fixing the IIS side
+
+There are three options, and which one is right depends entirely on **what reads your logs**. This is the decision most guides skip.
+
+### 1. Your application needs the real IP (ASP.NET Core)
+
+If you only care that your own code sees the right address, for authentication, rate limiting, or application-level logging, ASP.NET Core has this built in and it costs nothing. See [`aspnet-core/`](aspnet-core/).
+
+The trap: `KnownProxies` defaults to loopback only, so the middleware works on a developer machine and silently does nothing in production. `aspnet-core/Program.cs` shows the correct setup, including the dual-stack IPv6 gotcha and the .NET 10 `KnownIPNetworks` change.
+
+**This does not touch the IIS log.** It changes what your application sees, nothing more.
+
+### 2. You want the address in the log and control everything that reads it
+
+IIS 8.5 and later can add a custom log field sourced from a request header, giving you a `cs(X-Forwarded-For)` column. Free, native, no third-party component. See [`iis/Add-ForwardedForLogField.ps1`](iis/Add-ForwardedForLogField.ps1).
+
+Two limits worth knowing before you commit to it:
+
+- It **adds a column**; `c-ip` still shows the proxy. Anything keyed to `c-ip` (most SIEM connectors, geo-IP tooling, packaged log analysers) is unaffected and still reports your load balancer.
+- There is **no trust validation**. Whatever the header contains is logged verbatim, so anything able to reach IIS directly can forge it.
+
+### 3. `c-ip` itself has to be correct
+
+If a SIEM, a compliance requirement, or a packaged reporting tool is involved, the standard field has to hold the real address, because those tools key off `c-ip` and often cannot be told otherwise. That needs a filter that rewrites the field as IIS records it, validating the forwarding chain against a list of trusted proxies.
+
+The historically common answer was the F5 DevCentral community ISAPI filter (`F5XFFHttpModule`). It was last updated in 2009 and does not work on IIS 10, so if you find it recommended in a forum thread, check the date. [`iis/detect-legacy-isapi-filter.md`](iis/detect-legacy-isapi-filter.md) covers how to tell whether it is still installed on your servers and why it fails silently.
+
+For a maintained option, see [X-Forwarded-For for IIS](https://winfrasoft.com/products/x-forwarded-for/). Writing your own module is also viable; be aware you are taking on the chain-walking logic, trust-list validation, IPv6 edge cases and maintenance for every Windows Server upgrade.
+
+## A note on trust
+
+Every approach here depends on a header that any client can set. Correcting `c-ip` from an unvalidated header does not improve your audit trail, it makes it confidently wrong, which is worse than visibly wrong.
+
+Whatever you use, validate the chain against a list of proxies you actually trust, and parse it **from the right**. The rightmost entry was added by your nearest trusted hop; the leftmost is whatever the client claimed. [`diagnostics/Test-ForwardedHeaders.ps1`](diagnostics/Test-ForwardedHeaders.ps1) includes a spoofing check you can run against your own servers to confirm your trust list is doing its job.
+
+## Background reading
+
+Longer explanations of the specifics, all vendor-neutral:
+
+- [The `c-ip` field in IIS logs](https://winfrasoft.com/kb/iis-c-ip-log-field/)
+- [Which client IP header does your proxy send?](https://winfrasoft.com/kb/proxy-client-ip-headers/)
+- [ASP.NET Core `UseForwardedHeaders` behind a proxy](https://winfrasoft.com/kb/aspnet-core-forwarded-headers/)
+- [Replacing the F5 X-Forwarded-For ISAPI filter on IIS 10](https://winfrasoft.com/kb/f5-isapi-filter-iis-10-replacement/)
+- [Why SIEM and compliance tooling needs `c-ip`](https://winfrasoft.com/kb/iis-client-ip-siem-compliance/)
+
+## Contributing
+
+Corrections and additional proxy configurations are welcome, particularly for proxies not covered here (NetScaler, Kemp, Akamai, Fastly, Traefik, Envoy). Open a pull request with a config you have actually run, and note the product version you tested against.
+
+## Who maintains this
+
+Maintained by [Winfrasoft](https://winfrasoft.com), who sell a commercial ISAPI filter for option 3 above. Everything in `proxy/`, `aspnet-core/`, `diagnostics/` and the native IIS custom log field script is free, uses no Winfrasoft software, and works regardless of what you choose for the log-rewriting half. Issues and pull requests are read.
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).
