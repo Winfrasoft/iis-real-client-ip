@@ -37,6 +37,7 @@ Then check whether the header is even arriving, with [`diagnostics/Test-Forwarde
 | AWS ALB / Classic ELB | Yes | [`proxy/aws-elb.md`](proxy/aws-elb.md) |
 | Azure App Gateway / Front Door | Yes | [`proxy/azure.md`](proxy/azure.md) |
 | Cloudflare | Yes | [`proxy/cloudflare.md`](proxy/cloudflare.md) |
+| Akamai | `X-Forwarded-For` yes; `True-Client-IP` only if enabled | [`proxy/akamai.md`](proxy/akamai.md) |
 
 ## Fixing the IIS side
 
