@@ -31,6 +31,17 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     //
     // Load these from configuration rather than hard-coding them; see
     // appsettings.json in this folder for the pattern.
+    //
+    // Parse them explicitly, as below. Binding a section straight onto
+    // the options, e.g.
+    //     builder.Services.Configure<ForwardedHeadersOptions>(
+    //         builder.Configuration.GetSection("ForwardedHeaders"));
+    // with ForwardedHeaders__KnownProxies__0=10.0.0.5 in the environment
+    // binds ForwardLimit and ForwardedHeaders but leaves KnownProxies,
+    // KnownNetworks and KnownIPNetworks at their loopback defaults, with
+    // no error. Tested on .NET 8.0.31 and 10.0.12. The loop below reads
+    // the same values from any source, so TrustedProxies__0=10.0.0.5 as
+    // an environment variable works.
     // ---------------------------------------------------------------
 
     foreach (var ip in builder.Configuration
@@ -92,11 +103,12 @@ app.UseAuthorization();
 // identical, the middleware is not rewriting: the connection address
 // is not matching anything in KnownProxies/KnownNetworks.
 //
-// Watch specifically for RemoteIpAddress reading as ::ffff:10.0.0.5
-// rather than 10.0.0.5. On a dual-stack socket the connection arrives
-// as an IPv4-mapped IPv6 address and KnownProxies matching is exact,
-// so you must add the address in the form it actually appears. That is
-// the second trap and it looks identical to the first.
+// If RemoteIpAddress reads as ::ffff:10.0.0.5, that is the IPv4
+// proxy 10.0.0.5 arriving on a dual-stack socket. Trust it as plain
+// 10.0.0.5: since ASP.NET Core 2.2 the middleware maps IPv4-mapped
+// addresses back to IPv4 before checking KnownProxies and the network
+// lists (aspnet/BasicMiddleware#358). The reverse does not hold, so an
+// entry added as ::ffff:10.0.0.5 will not match a plain IPv4 connection.
 app.MapGet("/_whoami", (HttpContext ctx) => Results.Json(new
 {
     RemoteIpAddress = ctx.Connection.RemoteIpAddress?.ToString(),

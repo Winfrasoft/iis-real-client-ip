@@ -58,7 +58,7 @@ The three rows worth taking seriously today are the first two and the last. The 
 
 If you only care that your own code sees the right address, for authentication, rate limiting, or application-level logging, ASP.NET Core has this built in and it costs nothing. See [`aspnet-core/`](aspnet-core/).
 
-The trap: `KnownProxies` defaults to loopback only, so the middleware works on a developer machine and silently does nothing in production. `aspnet-core/Program.cs` shows the correct setup, including the dual-stack IPv6 gotcha and the .NET 10 `KnownIPNetworks` change.
+The trap: `KnownProxies` defaults to loopback only, so the middleware works on a developer machine and silently does nothing in production. `aspnet-core/Program.cs` shows the correct setup, including why trust lists supplied as `ForwardedHeaders__KnownProxies__0` environment variables are silently ignored, and the .NET 10 `KnownIPNetworks` change.
 
 **This does not touch the IIS log.** It changes what your application sees, nothing more.
 
