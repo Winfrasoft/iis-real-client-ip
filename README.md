@@ -38,6 +38,11 @@ Then check whether the header is even arriving, with [`diagnostics/Test-Forwarde
 | Azure App Gateway / Front Door | Yes | [`proxy/azure.md`](proxy/azure.md) |
 | Cloudflare | Yes | [`proxy/cloudflare.md`](proxy/cloudflare.md) |
 | Akamai | `X-Forwarded-For` yes; `True-Client-IP` only if enabled | [`proxy/akamai.md`](proxy/akamai.md) |
+| Imperva Cloud WAF | Yes, plus `Incap-Client-IP` (per Imperva's setup checklist) | [`proxy/imperva.md`](proxy/imperva.md) |
+| Fastly | Yes, appended; `Fastly-Client-IP` is spoofable unless VCL overrides it | [`proxy/fastly.md`](proxy/fastly.md) |
+| Google Cloud Application Load Balancer | Yes, client is second from the right | [`proxy/google-cloud-load-balancer.md`](proxy/google-cloud-load-balancer.md) |
+| Citrix NetScaler | No, opt-in per service | [`proxy/citrix-netscaler.md`](proxy/citrix-netscaler.md) |
+| Fortinet FortiWeb | No, off by default | [`proxy/fortiweb.md`](proxy/fortiweb.md) |
 
 ## Fixing the IIS side
 
@@ -101,7 +106,7 @@ Longer explanations of the specifics, all vendor-neutral:
 
 ## Contributing
 
-Corrections and additional proxy configurations are welcome, particularly for proxies not covered here (NetScaler, Kemp, Akamai, Fastly, Traefik, Envoy). Open a pull request with a config you have actually run, and note the product version you tested against.
+Corrections and additional proxy configurations are welcome, particularly for proxies not covered here (Kemp, Traefik, Envoy). Open a pull request with a config you have actually run, and note the product version you tested against.
 
 ## Who maintains this
 
