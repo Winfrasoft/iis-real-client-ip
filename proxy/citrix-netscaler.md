@@ -1,16 +1,16 @@
 # Citrix NetScaler in front of IIS
 
-**Short answer.** By default NetScaler connects to your servers from one of its own addresses, a subnet IP (SNIP), so IIS logs that in `c-ip`. NetScaler's *Insert Client IP Address* option adds the real client to a request header; per service it is `set service <name> -CIP ENABLED X-Forwarded-For`, and service groups carry the same flag. Name the header explicitly, because the NetScaler page we read does not state a default. IIS still ignores it, so log it as a column, as below, or validate it to correct `c-ip`.
+**Short answer.** By default NetScaler connects to your servers from one of its own addresses, a subnet IP (SNIP), so IIS logs that in `c-ip`. NetScaler's *Insert Client IP Address* option adds the real client to a request header; per service it is `set service <name> -CIP ENABLED X-Forwarded-For`. Name the header explicitly, because the NetScaler page we read does not state a default. IIS still ignores it, so log it as a column, as below, or validate it to correct `c-ip`.
 
 ## On the NetScaler
 
-Insert the client address into a header you name, per service (service groups carry the same flag). Name the header explicitly; the page we read does not state a default.
+Insert the client address into a header you name, per service. Name the header explicitly; the page we read does not state a default.
 
 ```
 set service svc-iis-01 -CIP ENABLED X-Forwarded-For
 ```
 
-USIP is the alternative that makes the connection itself come from the client, so `c-ip` is correct without a header. Citrix documents that it requires the server gateway to be a NetScaler-owned IP and that HTTP connections are not reused while it is on.
+USIP is the alternative that makes the connection itself come from the client, so `c-ip` is correct without a header. Citrix documents that it requires the server gateway to be a NetScaler-owned SNIP and that, in current releases, HTTP connections are not reused while it is on.
 
 ## Check what actually arrives
 
